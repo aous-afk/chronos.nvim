@@ -5,6 +5,13 @@ local Pick = require("chronos.ui.task_picker")
 local vim = vim
 
 local M = {}
+-- Simple format without priority (for pickers that don't show it)
+local function fmt_no_priority(t)
+  local id = t.id and ("#" .. t.id .. " ") or ""
+  local proj = t.project and ("[" .. t.project .. "] ") or ""
+  return id .. proj .. (t.description or "<no description>")
+end
+
 function M.task_add(cmd)
     local explicit_project, description, priority = c.parse_explicit_project_and_desc(cmd)
 
@@ -46,104 +53,59 @@ function M.task_add_start(cmd)
 end
 
 function M.task_start()
-    Task.export_status("pending", function(ok, tasks)
-	if not ok then return end
-	if #tasks == 0 then
-	    vim.notify("Chronos: no pending tasks", vim.log.levels.INFO)
+    Pick.pick_pending({ prompt = "Start task", format_item = fmt_no_priority}, function(choice)
+	if not choice then return end
+	local description = choice.description or ""
+	if description == "" then
+	    vim.notify("Chronos: selected task has no description", vim.log.levels.ERROR)
 	    return
 	end
 
-	vim.ui.select(tasks, {
-	    prompt = "Start task",
-	    format_item = function(t)
-		local id = t.id and ("#" .. t.id .. " ") or ""
-		local proj = t.project and ("[" .. t.project .. "] ") or ""
-		return id .. proj .. (t.description or "<no description>")
-	    end,
-	}, function(choice)
-		if not choice then return end
-
-		local description = choice.description or ""
-		if description == "" then
-		    vim.notify("Chronos: selected task has no description", vim.log.levels.ERROR)
-		    return
+	c.resolve_project(choice.project, function(project)
+	    Time.start(project, description, function(ok2)
+		if ok2 then
+		    require("chronos.projects").refresh()
+		    vim.notify(("Tracking started: [%s] %s"):format(project, description))
 		end
-
-		-- Use task.project if present; otherwise fall back to global/current via resolver
-		c.resolve_project(choice.project, function(project)
-		    Time.start(project, description, function(ok2)
-			if ok2 then
-			    require("chronos.projects").refresh()
-			    vim.notify(("Tracking started: [%s] %s"):format(project, description))
-			end
-		    end)
-		end)
 	    end)
+	end)
     end)
 end
 
 function M.task_done()
-    Task.export_status("pending", function(ok, tasks)
-	if not ok then return end
-	if #tasks == 0 then
-	    vim.notify("Chronos: no pending tasks", vim.log.levels.INFO)
+    Pick.pick_pending({ prompt = "Done task" }, function(choice)
+	if not choice then return end
+
+	local uuid = choice.uuid
+	if not uuid or uuid == "" then
+	    vim.notify("Chronos: selected task has no uuid", vim.log.levels.ERROR)
 	    return
 	end
 
-	vim.ui.select(tasks, {
-	    prompt = "Done task",
-	    format_item = function(t)
-		local id = t.id and ("#" .. t.id .. " ") or ""
-		local proj = t.project and ("[" .. t.project .. "] ") or ""
-		return id .. proj .. (t.description or "<no description>")
-	    end,
-	}, function(choice)
-		if not choice then return end
-		local uuid = choice.uuid
-		if not uuid or uuid == "" then
-		    vim.notify("Chronos: selected task has no uuid", vim.log.levels.ERROR)
-		    return
-		end
-
-		Task.done(uuid, function(ok_done)
-		    if ok_done then
-			vim.notify(("Task done: %s"):format(choice.description or uuid))
-			require("chronos.projects").refresh()
-		    end
-		end)
-	    end)
+	Task.done(uuid, function(ok_done)
+	    if ok_done then
+		vim.notify(("Task done: %s"):format(choice.description or uuid))
+		require("chronos.projects").refresh()
+	    end
+	end)
     end)
 end
 
 function M.task_reopen()
-    Task.export_status("completed", function(ok, tasks)
-	if not ok then return end
-	if #tasks == 0 then
-	    vim.notify("Chronos: no completed tasks", vim.log.levels.INFO)
+    Pick.pick_completed({ prompt = "Reopen task" }, function(choice)
+	if not choice then return end
+
+	local uuid = choice.uuid
+	if not uuid or uuid == "" then
+	    vim.notify("Chronos: selected task has no uuid", vim.log.levels.ERROR)
 	    return
 	end
 
-	vim.ui.select(tasks, {
-	    prompt = "Reopen task",
-	    format_item = function(t)
-		local id = t.id and ("#" .. t.id .. " ") or ""
-		local proj = t.project and ("[" .. t.project .. "] ") or ""
-		return id .. proj .. (t.description or "<no description>")
-	    end,
-	}, function(choice)
-		if not choice then return end
-		local uuid = choice.uuid
-		if not uuid or uuid == "" then
-		    vim.notify("Chronos: selected task has no uuid", vim.log.levels.ERROR)
-		    return
-		end
-
-		Task.reopen(uuid, function(ok_reopen)
-		    if ok_reopen then
-			vim.notify(("Task reopened: %s"):format(choice.description or uuid))
-		    end
-		end)
-	    end)
+	Task.reopen(uuid, function(ok_reopen)
+	    if ok_reopen then
+		vim.notify(("Task reopened: %s"):format(choice.description or uuid))
+	    end
+	end)
     end)
 end
 
@@ -182,14 +144,8 @@ local function choose_priority(task)
 end
 
 function M.task_priority()
-    Pick.pick("pending", {
+    Pick.pick_pending({
 	prompt = "Select from pending tasks to set priority",
-	format_item = function(t)
-	    local id = t.id and ("#" .. t.id .. " ") or ""
-	    local proj = t.project and ("[" .. t.project .. "] ") or ""
-	    local pr = t.priority and ("(" .. t.priority .. ") ") or ""
-	    return id .. pr .. proj .. (t.description or "<no description>")
-	end,
     }, function(choice)
 	    if not choice then return end
 	    choose_priority(choice)
