@@ -5,7 +5,7 @@ local vim = vim
 
 local M = {}
 function M.task_add(cmd)
-    local explicit_project, description = c.parse_explicit_project_and_desc(cmd)
+    local explicit_project, description, priority = c.parse_explicit_project_and_desc(cmd)
 
     if description == "" then
 	vim.notify("ChronosTaskAdd: description required", vim.log.levels.ERROR)
@@ -13,7 +13,7 @@ function M.task_add(cmd)
     end
 
     c.resolve_project(explicit_project, function(project)
-	Task.add(project, description, function(ok)
+	Task.add(project, description, priority, function(ok)
 	    if ok then
 		require("chronos.projects").refresh()
 		vim.notify(("Task added: [%s] %s"):format(project, description))
@@ -23,7 +23,7 @@ function M.task_add(cmd)
 end
 
 function M.task_add_start(cmd)
-    local explicit_project, description = c.parse_explicit_project_and_desc(cmd)
+    local explicit_project, description, priority = c.parse_explicit_project_and_desc(cmd)
 
     if description == "" then
 	vim.notify("ChronosTaskAddStart: description required", vim.log.levels.ERROR)
@@ -31,7 +31,7 @@ function M.task_add_start(cmd)
     end
 
     c.resolve_project(explicit_project, function(project)
-	Task.add(project, description, function(ok_add)
+	Task.add(project, description, priority, function(ok_add)
 	    if not ok_add then return end
 
 	    Time.start(project, description, function(ok_start)

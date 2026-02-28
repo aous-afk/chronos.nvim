@@ -6,25 +6,41 @@ local M = {}
 function M.parse_explicit_project_and_desc(cmd)
   local args = cmd.fargs or {}
   local explicit_project = nil
+  local priority = nil -- "H" | "M" | "L" | nil (none)
   local desc_parts = {}
 
   local i = 1
   while i <= #args do
-    if args[i] == "-p" then
+    local a = args[i]
+
+    if a == "-p" then
       explicit_project = args[i + 1]
       i = i + 2
+
+    elseif a == "-H" then
+      priority = "H"
+      i = i + 1
+
+    elseif a == "-M" then
+      priority = "M"
+      i = i + 1
+
+    elseif a == "-L" then
+      priority = "L"
+      i = i + 1
+
+    elseif a == "-N" then
+      priority = nil -- explicit none
+      i = i + 1
+
     else
-      table.insert(desc_parts, args[i])
+      table.insert(desc_parts, a)
       i = i + 1
     end
   end
 
-	--    if not project then
-	-- project = Config.get_current_project() or Config.opts.default_project
-	--    end
-
   local description = table.concat(desc_parts, " ")
-  return explicit_project, description
+  return explicit_project, description, priority
 end
 
 function M.resolve_project(explicit_project, cb)
