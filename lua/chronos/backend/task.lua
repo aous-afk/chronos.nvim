@@ -7,18 +7,26 @@ local M = {}
 --- @param project string
 --- @param description string
 --- @param cb fun(ok:boolean, res:table)|nil
-function M.add(project, description, cb)
-  cb = cb or function() end
-  local bin = Config.opts.task_bin or "task"
+function M.add(project, description, priority, cb)
+    cb = cb or function() end
+    local bin = Config.opts.task_bin or "task"
 
-  -- task add project:<name> <description...>
-  U.system({ bin, "add", ("project:%s"):format(project), description }, { text = true }, function(r)
-    if not r.ok then
-      U.notify_fail("task add", r)
-      return cb(false, r)
+    local args = { bin, "add" }
+    if project and project ~= "" then
+	table.insert(args, "project:" .. project)
     end
-    cb(true, r)
-  end)
+    if priority and priority ~= "" then
+	table.insert(args, "priority:" .. priority) -- H/M/L
+    end
+    table.insert(args, description)
+    -- task add project:<name> <description...>
+    U.system(args, { text = true }, function(r)
+	if not r.ok then
+	    U.notify_fail("task add", r)
+	    return cb(false, r)
+	end
+	cb(true, r)
+    end)
 end
 
 function M.projects(cb)
@@ -93,6 +101,32 @@ function M.reopen(uuid, cb)
     U.system({ bin, uuid, "modify", "status:pending" }, { text = true }, function(r)
 	if not r.ok then
 	    U.notify_fail("task reopen", r)
+	    return cb(false, r)
+	end
+	cb(true, r)
+    end)
+end
+
+function M.set_priority(uuid, priority, cb)
+    cb = cb or function() end
+    local bin = Config.opts.task_bin or "task"
+
+    if not uuid or uuid == "" then
+	vim.notify("Chronos: set_priority missing uuid", vim.log.levels.ERROR)
+	return cb(false)
+    end
+
+    local args = { bin, uuid, "modify" }
+
+    if priority and priority ~= "" then
+	table.insert(args, "priority:" .. priority)
+    else
+	table.insert(args, "priority:") -- clears priority
+    end
+
+    U.system(args, { text = true }, function(r)
+	if not r.ok then
+	    U.notify_fail("task set_priority", r)
 	    return cb(false, r)
 	end
 	cb(true, r)

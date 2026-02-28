@@ -65,6 +65,10 @@ function M.setup(opts)
 	taskCmds.task_reopen()
     end, {})
 
+    vim.api.nvim_create_user_command("ChronosTaskPriority", function()
+	taskCmds.task_priority()
+    end, {})
+
 end
 
 return M
