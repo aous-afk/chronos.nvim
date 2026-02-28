@@ -1,6 +1,7 @@
 local Time = require("chronos.backend.time")
 local Task = require("chronos.backend.task")
 local c = require("chronos.commands")
+local Pick = require("chronos.ui.task_picker")
 local vim = vim
 
 local M = {}
@@ -180,9 +181,9 @@ local function choose_priority(task)
 	end)
 end
 
-local function choose_task(tasks)
-    vim.ui.select(tasks, {
-	prompt = "Select task",
+function M.task_priority()
+    Pick.pick("pending", {
+	prompt = "Select from pending tasks to set priority",
 	format_item = function(t)
 	    local id = t.id and ("#" .. t.id .. " ") or ""
 	    local proj = t.project and ("[" .. t.project .. "] ") or ""
@@ -193,18 +194,6 @@ local function choose_task(tasks)
 	    if not choice then return end
 	    choose_priority(choice)
 	end)
-end
-
-function M.task_priority()
-    Task.export_status("pending", function(ok, tasks)
-	if not ok then return end
-	if #tasks == 0 then
-	    vim.notify("Chronos: no pending tasks", vim.log.levels.INFO)
-	    return
-	end
-
-	choose_task(tasks)
-    end)
 end
 
 return M
