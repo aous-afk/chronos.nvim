@@ -1,4 +1,6 @@
 local Task = require("chronos.backend.task")
+local Projects = require("chronos.projects")
+local Commands = require("chronos.commands")
 
 local M = {}
 
@@ -98,6 +100,20 @@ function M.choose_priority(cb)
     }, function(choice)
 	    cb(choice.value)
 	end)
+end
+-- Choose project with fallback to resolver
+function M.choose_project(cb)
+    local list = Projects.get() or {}
+
+    -- If cache empty, use resolver (handles current/default logic)
+    if #list == 0 then
+	return Commands.resolve_project(nil, cb)
+    end
+
+    M.choose(list, {
+	prompt = "Project",
+	format_item = function(p) return p end,
+    }, cb)
 end
 
 return M
