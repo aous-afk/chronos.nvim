@@ -42,7 +42,7 @@ function M.task_add_start(cmd)
 	Task.add(project, description, priority, function(ok_add)
 	    if not ok_add then return end
 
-	    Time.start(project, description, function(ok_start)
+	    Time.start(project, c.apply_prio_tag(priority, description), function(ok_start)
 		if ok_start then
 		    require("chronos.projects").refresh()
 		    vim.notify(("Task added + tracking started: [%s] %s"):format(project, description))
@@ -60,6 +60,8 @@ function M.task_start()
 	    vim.notify("Chronos: selected task has no description", vim.log.levels.ERROR)
 	    return
 	end
+
+	description = c.apply_prio_tag(choice.priority, description)
 
 	c.resolve_project(choice.project, function(project)
 	    Time.start(project, description, function(ok2)

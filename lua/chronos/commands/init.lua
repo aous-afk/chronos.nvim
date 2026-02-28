@@ -86,4 +86,9 @@ function M.project_select()
     end)
 end
 
+function M.apply_prio_tag(priority, description)
+  if not priority or priority == "" then return description end
+  return ("prio:%s %s"):format(priority, description)
+end
+
 return M

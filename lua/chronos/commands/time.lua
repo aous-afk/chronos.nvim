@@ -4,12 +4,14 @@ local c = require("chronos.commands")
 local vim = vim
 
 function M.time_start(cmd)
-    local explicit_project, description = c.parse_explicit_project_and_desc(cmd)
+    local explicit_project, description, priority = c.parse_explicit_project_and_desc(cmd)
 
     if description == "" then
 	vim.notify("ChronosTimeStart: description required", vim.log.levels.ERROR)
 	return
     end
+
+    description = c.apply_prio_tag(priority, description)
 
     c.resolve_project(explicit_project, function(project)
 	Time.start(project, description, function(ok)
