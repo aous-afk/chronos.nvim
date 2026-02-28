@@ -43,24 +43,24 @@ function M.projects(cb)
   end)
 end
 
-function M.export_pending(cb)
-  cb = cb or function() end
-  local bin = Config.opts.task_bin or "task"
+function M.export_status(status, cb)
+    cb = cb or function() end
+    local bin = Config.opts.task_bin or "task"
+    status = status or "pending"
+    U.system({ bin, "status:" .. status, "export" }, { text = true }, function(r)
+	if not r.ok then
+	    U.notify_fail("task export", r)
+	    return cb(false, r)
+	end
 
-  U.system({ bin, "status:pending", "export" }, { text = true }, function(r)
-    if not r.ok then
-      U.notify_fail("task export", r)
-      return cb(false, r)
-    end
+	local ok, data = pcall(vim.json.decode, r.stdout or "")
+	if not ok or type(data) ~= "table" then
+	    vim.notify("Chronos: failed to decode Taskwarrior JSON export", vim.log.levels.ERROR)
+	    return cb(false, { ok = false, code = -1, stdout = r.stdout, stderr = "json decode failed" })
+	end
 
-    local ok, data = pcall(vim.json.decode, r.stdout or "")
-    if not ok or type(data) ~= "table" then
-      vim.notify("Chronos: failed to decode Taskwarrior JSON export", vim.log.levels.ERROR)
-      return cb(false, { ok = false, code = -1, stdout = r.stdout, stderr = "json decode failed" })
-    end
-
-    cb(true, data)
-  end)
+	cb(true, data)
+    end)
 end
 
 function M.done(uuid, cb)
@@ -75,6 +75,24 @@ function M.done(uuid, cb)
     U.system({ bin, uuid, "done" }, { text = true }, function(r)
 	if not r.ok then
 	    U.notify_fail("task done", r)
+	    return cb(false, r)
+	end
+	cb(true, r)
+    end)
+end
+
+function M.reopen(uuid, cb)
+    cb = cb or function() end
+    local bin = Config.opts.task_bin or "task"
+
+    if not uuid or uuid == "" then
+	vim.notify("Chronos: task.done missing uuid", vim.log.levels.ERROR)
+	return cb(false, { ok = false, code = -1, stdout = "", stderr = "missing uuid" })
+    end
+
+    U.system({ bin, uuid, "modify", "status:pending" }, { text = true }, function(r)
+	if not r.ok then
+	    U.notify_fail("task reopen", r)
 	    return cb(false, r)
 	end
 	cb(true, r)

@@ -45,7 +45,7 @@ function M.task_add_start(cmd)
 end
 
 function M.task_start()
-    Task.export_pending(function(ok, tasks)
+    Task.export_status("pending", function(ok, tasks)
 	if not ok then return end
 	if #tasks == 0 then
 	    vim.notify("Chronos: no pending tasks", vim.log.levels.INFO)
@@ -82,7 +82,7 @@ function M.task_start()
 end
 
 function M.task_done()
-    Task.export_pending(function(ok, tasks)
+    Task.export_status("pending", function(ok, tasks)
 	if not ok then return end
 	if #tasks == 0 then
 	    vim.notify("Chronos: no pending tasks", vim.log.levels.INFO)
@@ -108,6 +108,38 @@ function M.task_done()
 		    if ok_done then
 			vim.notify(("Task done: %s"):format(choice.description or uuid))
 			require("chronos.projects").refresh()
+		    end
+		end)
+	    end)
+    end)
+end
+
+function M.task_reopen()
+    Task.export_status("completed", function(ok, tasks)
+	if not ok then return end
+	if #tasks == 0 then
+	    vim.notify("Chronos: no completed tasks", vim.log.levels.INFO)
+	    return
+	end
+
+	vim.ui.select(tasks, {
+	    prompt = "Reopen task",
+	    format_item = function(t)
+		local id = t.id and ("#" .. t.id .. " ") or ""
+		local proj = t.project and ("[" .. t.project .. "] ") or ""
+		return id .. proj .. (t.description or "<no description>")
+	    end,
+	}, function(choice)
+		if not choice then return end
+		local uuid = choice.uuid
+		if not uuid or uuid == "" then
+		    vim.notify("Chronos: selected task has no uuid", vim.log.levels.ERROR)
+		    return
+		end
+
+		Task.reopen(uuid, function(ok_reopen)
+		    if ok_reopen then
+			vim.notify(("Task reopened: %s"):format(choice.description or uuid))
 		    end
 		end)
 	    end)

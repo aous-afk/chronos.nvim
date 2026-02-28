@@ -44,6 +44,7 @@ Projects are merged from both tools and cached for completion.
 | `:ChronosTaskStart` | Shows pending Taskwarrior tasks, lets you select one, and starts tracking it in bartib (does not change task status). |
 | `:ChronosTaskDone` | Shows pending Taskwarrior tasks and marks the selected task as done (uses UUID for stability). |
 | `:ChronosTaskDoneStop` | Stops the current bartib activity, then marks the selected pending task as done. |
+| `:ChronosTaskReopen` | Shows completed tasks and reopens the selected task (`status:pending`). |
 
 ---
 
@@ -120,6 +121,12 @@ Completion is native Neovim `customlist` completion.
 
 ```vim
 :ChronosTaskDoneStop
+```
+
+### Reopen a completed task
+
+```vim
+:ChronosTaskReopen
 ```
 
 ---
