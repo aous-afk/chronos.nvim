@@ -155,4 +155,56 @@ function M.task_done_stop()
     end)
 end
 
+local function choose_priority(task)
+    local priorities = {
+	{ label = "High (H)", value = "H" },
+	{ label = "Medium (M)", value = "M" },
+	{ label = "Low (L)", value = "L" },
+	{ label = "None", value = nil },
+    }
+
+    vim.ui.select(priorities, {
+	prompt = "Set priority",
+	format_item = function(p) return p.label end,
+    }, function(pchoice)
+	    if not pchoice then return end
+
+	    Task.set_priority(task.uuid, pchoice.value, function(ok_set)
+		if ok_set then
+		    vim.notify(("Priority updated: %s → %s"):format(
+			task.description or task.uuid,
+			pchoice.value or "None"
+		    ))
+		end
+	    end)
+	end)
+end
+
+local function choose_task(tasks)
+    vim.ui.select(tasks, {
+	prompt = "Select task",
+	format_item = function(t)
+	    local id = t.id and ("#" .. t.id .. " ") or ""
+	    local proj = t.project and ("[" .. t.project .. "] ") or ""
+	    local pr = t.priority and ("(" .. t.priority .. ") ") or ""
+	    return id .. pr .. proj .. (t.description or "<no description>")
+	end,
+    }, function(choice)
+	    if not choice then return end
+	    choose_priority(choice)
+	end)
+end
+
+function M.task_priority()
+    Task.export_status("pending", function(ok, tasks)
+	if not ok then return end
+	if #tasks == 0 then
+	    vim.notify("Chronos: no pending tasks", vim.log.levels.INFO)
+	    return
+	end
+
+	choose_task(tasks)
+    end)
+end
+
 return M

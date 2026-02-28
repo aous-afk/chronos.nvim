@@ -107,4 +107,30 @@ function M.reopen(uuid, cb)
     end)
 end
 
+function M.set_priority(uuid, priority, cb)
+    cb = cb or function() end
+    local bin = Config.opts.task_bin or "task"
+
+    if not uuid or uuid == "" then
+	vim.notify("Chronos: set_priority missing uuid", vim.log.levels.ERROR)
+	return cb(false)
+    end
+
+    local args = { bin, uuid, "modify" }
+
+    if priority and priority ~= "" then
+	table.insert(args, "priority:" .. priority)
+    else
+	table.insert(args, "priority:") -- clears priority
+    end
+
+    U.system(args, { text = true }, function(r)
+	if not r.ok then
+	    U.notify_fail("task set_priority", r)
+	    return cb(false, r)
+	end
+	cb(true, r)
+    end)
+end
+
 return M
