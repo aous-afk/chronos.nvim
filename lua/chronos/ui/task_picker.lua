@@ -71,4 +71,33 @@ function M.default_format()
     return default_format
 end
 
+function M.choose(items, opts, cb)
+    opts = opts or {}
+    cb = cb or function() end
+
+    vim.ui.select(items, {
+	prompt = opts.prompt,
+	format_item = opts.format_item,
+    }, function(choice)
+	    if not choice then return end
+	    cb(choice)
+	end)
+end
+
+function M.choose_priority(cb)
+    local items = {
+	{ label = "High", value = "-H" },
+	{ label = "Medium", value = "-M" },
+	{ label = "Low", value = "-L" },
+	{ label = "None", value = "-N" },
+    }
+
+    return M.choose(items, {
+	prompt = "Priority",
+	format_item = function(it) return it.label end,
+    }, function(choice)
+	    cb(choice.value)
+	end)
+end
+
 return M
