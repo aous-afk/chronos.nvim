@@ -108,4 +108,112 @@ function M.projects(cb)
     end)
 end
 
+-- bartib report --current_week
+function M.report_current_week(cb)
+    cb = cb or function() end
+    local bin = Config.opts.bartib_bin or "bartib"
+    U.system({ bin, "report", "--current_week" }, { text = true }, function(r)
+	vim.schedule(function() cb(r) end)
+    end)
+end
+
+function M.current(cb)
+    cb = cb or function() end
+    local bin = Config.opts.bartib_bin or "bartib"
+    U.system({ bin, "current" }, { text = true }, function(r)
+	vim.schedule(function() cb(r) end)
+    end)
+end
+
+local function strip_ansi(s)
+  return (s or ""):gsub("\27%[[0-9;]*m", "")
+end
+
+function M.parse_bartib_current(stdout)
+  if not stdout or stdout == "" then
+    return nil
+  end
+
+  -- 1) strip ANSI
+  local s = strip_ansi(stdout)
+
+  -- 2) normalize newlines
+  s = s:gsub("\r\n", "\n")
+
+  -- 3) normalize weird whitespace (NBSP + narrow NBSP)
+  s = s:gsub("\194\160", " ")      -- U+00A0
+  s = s:gsub("\226\128\175", " ")  -- U+202F
+
+  -- 4) collapse multiple spaces
+  s = s:gsub("[ \t]+", " ")
+
+  local lines = vim.split(s, "\n", { plain = true, trimempty = true })
+
+  local row = nil
+  for _, l in ipairs(lines) do
+    -- match actual data row: 2026-03-01 00:23 ...
+    if l:match("^%d%d%d%d%-%d%d%-%d%d%s+%d%d:%d%d") then
+      row = l
+      break
+    end
+  end
+
+  if not row then
+    return nil
+  end
+
+  local cols = {}
+  for tok in row:gmatch("%S+") do
+    table.insert(cols, tok)
+  end
+
+  if #cols < 5 then
+    return nil
+  end
+
+  local date = cols[1]
+  local time = cols[2]
+
+  -- detect duration (3h 49m OR <1m)
+  local last = cols[#cols]
+  local prev = cols[#cols - 1]
+
+  local duration
+  local project_index
+
+  if last:match("^%d+m$") or last:match("^<%d+m$") then
+    if prev and prev:match("^%d+h$") then
+      duration = prev .. " " .. last
+      project_index = #cols - 2
+    else
+      duration = last
+      project_index = #cols - 1
+    end
+  else
+    return nil
+  end
+
+  local project = cols[project_index]
+  if not project then
+    return nil
+  end
+
+  local desc_parts = {}
+  for i = 3, project_index - 1 do
+    table.insert(desc_parts, cols[i])
+  end
+
+  local description = table.concat(desc_parts, " ")
+  if description == "" then
+    description = "(no description)"
+  end
+
+  return {
+    started_at = date .. " " .. time,
+    project = project,
+    description = description,
+    duration = duration,
+  }
+end
+
 return M

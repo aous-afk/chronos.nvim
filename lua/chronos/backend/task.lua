@@ -3,6 +3,17 @@ local U = require("chronos.util")
 
 local M = {}
 
+-- task status:<status> export (raw JSON text)
+function M.export_raw(status, cb)
+    cb = cb or function() end
+    local bin = Config.opts.task_bin or "task"
+    status = status or "pending"
+
+    U.system({ bin, "status:" .. status, "export" }, { text = true }, function(r)
+	vim.schedule(function() cb(r) end)
+    end)
+end
+
 --- Create a Taskwarrior task
 --- @param project string
 --- @param description string
@@ -53,21 +64,21 @@ end
 
 function M.export_status(status, cb)
     cb = cb or function() end
-    local bin = Config.opts.task_bin or "task"
-    status = status or "pending"
-    U.system({ bin, "status:" .. status, "export" }, { text = true }, function(r)
+
+    M.export_raw(status, function(r)
 	if not r.ok then
 	    U.notify_fail("task export", r)
 	    return cb(false, r)
 	end
 
-	local ok, data = pcall(vim.json.decode, r.stdout or "")
-	if not ok or type(data) ~= "table" then
-	    vim.notify("Chronos: failed to decode Taskwarrior JSON export", vim.log.levels.ERROR)
-	    return cb(false, { ok = false, code = -1, stdout = r.stdout, stderr = "json decode failed" })
+	local ok, tasks = pcall(vim.json.decode, r.stdout or "[]")
+	if not ok or type(tasks) ~= "table" then
+	    local err = { ok = false, code = r.code or -1, stdout = r.stdout or "", stderr = "invalid task JSON" }
+	    vim.notify("Chronos: failed to decode task export JSON", vim.log.levels.ERROR)
+	    return cb(false, err)
 	end
 
-	cb(true, data)
+	cb(true, tasks)
     end)
 end
 
@@ -130,6 +141,25 @@ function M.set_priority(uuid, priority, cb)
 	    return cb(false, r)
 	end
 	cb(true, r)
+    end)
+end
+
+function M.export_pending(cb)
+    return M.export_status("pending", cb)
+end
+
+function M.count_pending(project, cb)
+    cb = cb or function() end
+    local bin = Config.opts.task_bin or "task"
+
+    local args = { bin, "status:pending" }
+    if project and project ~= "" then
+	table.insert(args, ("project:%s"):format(project))
+    end
+    table.insert(args, "count")
+
+    U.system(args, { text = true }, function(r)
+	vim.schedule(function() cb(r) end)
     end)
 end
 
