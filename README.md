@@ -18,6 +18,55 @@ Projects are merged from both tools and cached for completion.
 
 ---
 
+## Configuration
+
+All configuration is optional.
+
+```lua
+opts = {
+    default_project = "Work",
+    bartib_bin = "bartib",
+    task_bin = "task",
+
+    -- Optional: seed additional projects (merged into project cache)
+    projects = nil, -- { "backend", "frontend", "Home.Kitchen" }
+
+    -- Optional: keymap installer (opt-in)
+    -- If nil, Chronos does not install any keymaps.
+    keymaps = nil,
+    -- or
+    -- keymaps = {
+        -- enabled = true,
+        -- prefix = "m",
+        -- overrides = {
+        -- 	ts = { "n", "ms", function() require("chronos.actions").time_start_prompt() end, "Start time tracking" },
+        -- },
+        -- disable = { "pr" },
+    -- },
+
+}
+```
+
+### Custom Projects
+
+You can seed additional projects:
+
+```lua
+opts = {
+  projects = { "backend", "frontend", "Home.Kitchen" },
+}
+```
+
+These are merged with:
+
+- `bartib projects`
+- Taskwarrior project values
+- your configured list
+
+All merged and deduplicated.
+
+---
+
 ## Project Model
 
 - Projects are simple strings.
@@ -45,6 +94,7 @@ Projects are merged from both tools and cached for completion.
 | `:ChronosTaskDone` | Shows pending Taskwarrior tasks and marks the selected task as done (uses UUID for stability). |
 | `:ChronosTaskDoneStop` | Stops the current bartib activity, then marks the selected pending task as done. |
 | `:ChronosTaskReopen` | Shows completed tasks and reopens the selected task (`status:pending`). |
+| `:ChronosTaskPriority` | Select a pending task and update its priority (H / M / L / None). |
 
 ---
 
@@ -60,13 +110,14 @@ Projects are merged from both tools and cached for completion.
 - Projects are merged and deduplicated from:
   - `bartib projects`
   - Taskwarrior project list
+  - `opts.projects` (if configured)
 - `ChronosTaskDone` and `ChronosTaskDoneStop` use Taskwarrior UUIDs to avoid instability of numeric IDs.
 
 ---
 
 ## Command-line Completion
 
-Commands supporting `-p`:
+### Commands supporting `-p`:
 
 - `:ChronosTimeStart`
 - `:ChronosTaskAdd`
@@ -80,7 +131,55 @@ Usage:
 :ChronosTaskAddStart -p <Tab>
 ```
 
-Completion is native Neovim `customlist` completion.
+Completion uses Neovim native `customlist` completion.
+
+### Priority Flags
+
+Commands that support priority flags:
+
+- `:ChronosTaskAdd`
+- `:ChronosTaskAddStart`
+- `:ChronosTimeStart` (adds `prio:` tag to description for consistency)
+
+Supported flags:
+
+- `-H` → High priority
+- `-M` → Medium priority
+- `-L` → Low priority
+- `-N` → Remove priority (None)
+
+Examples:
+
+```vim
+:ChronosTaskAdd -p backend -H Fix login bug
+:ChronosTaskAddStart -M Refactor service layer
+:ChronosTimeStart -L Minor cleanup
+```
+
+### Interactive Flow (Project → Priority → Description)
+
+When using Chronos through interactive actions (keymaps or dashboard):
+
+1. Select project  
+2. Select priority (High / Medium / Low / None)  
+3. Enter description  
+
+The command is then executed internally with the correct flags.
+
+Example flow:
+
+- Pick project → `backend`
+- Pick priority → `High`
+- Enter description → `Fix login bug`
+
+Internally becomes:
+
+```vim
+:ChronosTaskAddStart -p backend -H Fix login bug
+```
+
+You only need to type flags when using commands manually.
+Interactive usage handles this automatically.
 
 ---
 
@@ -131,8 +230,34 @@ Completion is native Neovim `customlist` completion.
 
 ---
 
+## Default Keymaps
+
+``` lua
+    -- default prefix "<leader>m"
+
+	ts = { "n", "ts", A.time_start_prompt, "Start time tracking" },
+	tt = { "n", "tt", A.time_stop, "Stop time tracking" },
+	tc = { "n", "tc", A.time_continue, "Continue last activity" },
+
+	-- task
+	ka = { "n", "ka", A.task_add_prompt, "Add new task" },
+	kA = { "n", "kA", A.task_add_start_prompt, "Add and start task" },
+	ks = { "n", "ks", A.task_start, "Start existing task" },
+	kd = { "n", "kd", A.task_done, "Mark task done" },
+	kD = { "n", "kD", A.task_done_stop, "Done task and stop" },
+	kr = { "n", "kr", A.task_reopen, "Reopen completed task" },
+	kp = { "n", "kp", A.task_priority, "Set task priority" },
+
+	-- project
+	ps = { "n", "ps", A.project_select, "Select active project" },
+	pr = { "n", "pr", A.projects_refresh, "Refresh project cache" },
+```
+
+---
+
 ## Notes
 
 - `ChronosTimeContinue` uses `bartib last` and continues by index.
 - Parsing is intentionally minimal (index only) to avoid brittle column parsing.
 - Task completion is done via `task <uuid> done` for stability.
+- Dashboard currently displays raw CLI output; long-term plan is structured JSON via backend.
