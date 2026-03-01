@@ -1,11 +1,14 @@
 local M = {}
 
-M.opts = {
+M.defaults = {
     default_project = "Work",
     current_project = nil,
     bartib_bin = "bartib",
     task_bin = "task",
+    projects = {}
 }
+M.opts = vim.deepcopy(M.defaults)
+
 local function state_file()
     return vim.fn.stdpath("state") .. "/chronos.json"
 end
@@ -37,7 +40,9 @@ function M.get_current_project()
 end
 
 function M.setup(opts)
-    M.opts = vim.tbl_deep_extend("force", M.opts, opts or {})
+    opts = opts or {}
+    opts.current_project = nil
+    M.opts = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts)
     M.load_state()
 end
 
