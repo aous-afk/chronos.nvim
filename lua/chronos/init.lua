@@ -9,6 +9,9 @@ local function create(name, fn, opts)
 end
 
 function M.setup(opts)
+    if opts and opts.keymaps then
+	require("chronos.keymaps").setup(opts.keymaps)
+    end
     require("chronos.config").setup(opts)
     require("chronos.projects").refresh()
     local complete_project = "customlist,v:lua.require'chronos.complete'.chronos_args"
