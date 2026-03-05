@@ -16,22 +16,22 @@ local state = {
     last_task_view = nil,
 }
 local function flatten_newlines(s)
-  s = s or ""
-  s = s:gsub("\r\n", "\n"):gsub("\r", "\n")
-  s = s:gsub("\n", " ")
-  return s
+    s = s or ""
+    s = s:gsub("\r\n", "\n"):gsub("\r", "\n")
+    s = s:gsub("\n", " ")
+    return s
 end
 
 local function pad_right(s, width)
-  s = s or ""
-  if #s >= width then return s end
-  return s .. string.rep(" ", width - #s)
+    s = s or ""
+    if #s >= width then return s end
+    return s .. string.rep(" ", width - #s)
 end
 
 local function compact(s)
-  s = flatten_newlines(s)
-  s = s:gsub("%s+", " ")
-  return s:gsub("^%s+", ""):gsub("%s+$", "")
+    s = flatten_newlines(s)
+    s = s:gsub("%s+", " ")
+    return s:gsub("^%s+", ""):gsub("%s+$", "")
 end
 local function oneline(s)
     s = s or ""
@@ -47,18 +47,18 @@ local function strip_ansi(s)
 end
 
 local function load_state(cb)
-  cb = cb or function() end
+    cb = cb or function() end
 
-  local project = (Config.get_current_project and Config.get_current_project()) or Config.opts.default_project
-  if not project or project == "" then project = Config.opts.default_project end
+    local project = (Config.get_current_project and Config.get_current_project()) or Config.opts.default_project
+    if not project or project == "" then project = Config.opts.default_project end
 
-  local state_lines = {
-    ("Project: %s"):format(project),
-    "Tracking: (loading...)",
-    "Pending: (loading...)",
-  }
+    local state_lines = {
+	("Project: %s"):format(project),
+	"Tracking: (loading...)",
+	"Pending: (loading...)",
+    }
 
-  Time.current(function(r)
+    Time.current(function(r)
 	if r and r.ok then
 	    local info = Time.parse_bartib_current(r.stdout)
 	    if info then
@@ -184,33 +184,33 @@ local function header(state_lines)
 end
 
 local function render_with_state(build_body_lines, apply_hl)
-  load_state(function(state_lines)
-    local head = header(state_lines)
-    local body = build_body_lines() or {}
-    set_lines(vim.list_extend(head, body), { sanitize = true })
-    if apply_hl then apply_hl() end
-  end)
+    load_state(function(state_lines)
+	local head = header(state_lines)
+	local body = build_body_lines() or {}
+	set_lines(vim.list_extend(head, body), { sanitize = true })
+	if apply_hl then apply_hl() end
+    end)
 end
 
 function M.show_weekly_report()
-  render_with_state(function()
-    return { "Loading weekly report...", "" }
-  end)
-
-  Time.report_current_week(function(res)
-    if res.code ~= 0 then
-      return render_with_state(function()
-        return { "ERROR: bartib report failed", res.stderr or "" }
-      end)
-    end
-
-    local out = strip_ansi(res.stdout):gsub("\r\n", "\n")
-    local report_lines = vim.split(out, "\n", { plain = true })
-
     render_with_state(function()
-      return report_lines
-    end, apply_report_highlights)
-  end)
+	return { "Loading weekly report...", "" }
+    end)
+
+    Time.report_current_week(function(res)
+	if res.code ~= 0 then
+	    return render_with_state(function()
+		return { "ERROR: bartib report failed", res.stderr or "" }
+	    end)
+	end
+
+	local out = strip_ansi(res.stdout):gsub("\r\n", "\n")
+	local report_lines = vim.split(out, "\n", { plain = true })
+
+	render_with_state(function()
+	    return report_lines
+	end, apply_report_highlights)
+    end)
 end
 
 -- Rebuild line→uuid map by scanning the buffer for rendered task lines.
@@ -222,18 +222,18 @@ local function rebuild_line_task_map(tasks)
     -- Build id→uuid lookup from the task list (id is the short numeric id)
     local id_to_uuid = {}
     for _, t in ipairs(tasks or {}) do
-        if t.id and t.uuid then
-            id_to_uuid[tostring(t.id)] = t.uuid
-        end
+	if t.id and t.uuid then
+	    id_to_uuid[tostring(t.id)] = t.uuid
+	end
     end
 
     local lines = vim.api.nvim_buf_get_lines(state.buf, 0, -1, false)
     for i, line in ipairs(lines) do
-        -- task lines look like:  "- #42 prio:H [Project] description"
-        local id_str = line:match("^%- #(%d+)")
-        if id_str and id_to_uuid[id_str] then
-            state.line_task_map[i] = id_to_uuid[id_str]
-        end
+	-- task lines look like:  "- #42 prio:H [Project] description"
+	local id_str = line:match("^%- #(%d+)")
+	if id_str and id_to_uuid[id_str] then
+	    state.line_task_map[i] = id_to_uuid[id_str]
+	end
     end
 end
 
@@ -261,9 +261,9 @@ local function render_pending_tasks(tasks, title_line)
 	end
 	return out
     end, function()
-        apply_task_highlights()
-        rebuild_line_task_map(tasks)
-    end)
+	    apply_task_highlights()
+	    rebuild_line_task_map(tasks)
+	end)
 end
 
 function M.show_pending_tasks_all()
@@ -376,52 +376,52 @@ function M.open()
     vim.keymap.set("n", "t", M.show_pending_tasks_all, vim.tbl_extend("force", opts, { desc = "Pending tasks (all)" }))
 
     vim.keymap.set("n", "d", function()
-        local line = vim.api.nvim_win_get_cursor(state.win)[1] -- 1-based
-        local uuid = state.line_task_map[line]
-        if not uuid then
-            vim.notify("Chronos: no task on this line", vim.log.levels.WARN)
-            return
-        end
-        Task.done(uuid, function(ok)
-            if ok then
-                vim.notify("Task done ✓")
-                -- Refresh whichever task view is currently showing
-                if state.last_task_view == "all" then
-                    M.show_pending_tasks_all()
-                elseif state.last_task_view == "project" then
-                    M.show_pending_tasks_current_project()
-                end
-            end
-        end)
+	local line = vim.api.nvim_win_get_cursor(state.win)[1] -- 1-based
+	local uuid = state.line_task_map[line]
+	if not uuid then
+	    vim.notify("Chronos: no task on this line", vim.log.levels.WARN)
+	    return
+	end
+	Task.done(uuid, function(ok)
+	    if ok then
+		vim.notify("Task done ✓")
+		-- Refresh whichever task view is currently showing
+		if state.last_task_view == "all" then
+		    M.show_pending_tasks_all()
+		elseif state.last_task_view == "project" then
+		    M.show_pending_tasks_current_project()
+		end
+	    end
+	end)
     end, vim.tbl_extend("force", opts, { desc = "Mark task done" }))
 
     vim.keymap.set("n", "a", function()
-        local current = Config.get_current_project and Config.get_current_project()
-        if not current or current == "" then current = Config.opts.default_project end
+	local current = Config.get_current_project and Config.get_current_project()
+	if not current or current == "" then current = Config.opts.default_project end
 
-        vim.ui.input({ prompt = ("Add task [%s]: "):format(current) }, function(input)
-            if not input or vim.trim(input) == "" then return end
-            local description = vim.trim(input)
-            Task.add(current, description, nil, function(ok)
-                if ok then
-                    vim.notify(("Task added: [%s] %s"):format(current, description))
-                    -- Refresh the current task view, or default to project view
-                    if state.last_task_view == "all" then
-                        M.show_pending_tasks_all()
-                    else
-                        state.last_task_view = "project"
-                        M.show_pending_tasks_current_project()
-                    end
-                end
-            end)
-        end)
+	vim.ui.input({ prompt = ("Add task [%s]: "):format(current) }, function(input)
+	    if not input or vim.trim(input) == "" then return end
+	    local description = vim.trim(input)
+	    Task.add(current, description, nil, function(ok)
+		if ok then
+		    vim.notify(("Task added: [%s] %s"):format(current, description))
+		    -- Refresh the current task view, or default to project view
+		    if state.last_task_view == "all" then
+			M.show_pending_tasks_all()
+		    else
+			state.last_task_view = "project"
+			M.show_pending_tasks_current_project()
+		    end
+		end
+	    end)
+	end)
     end, vim.tbl_extend("force", opts, { desc = "Add task" }))
-vim.keymap.set("n", "r", function()
-  set_lines(header({ "Refreshing..." }), { sanitize = true })
-  load_state(function(lines)
-    set_lines(header(lines), { sanitize = true })
-  end)
-end, vim.tbl_extend("force", opts, { desc = "Refresh state" }))
+    vim.keymap.set("n", "r", function()
+	set_lines(header({ "Refreshing..." }), { sanitize = true })
+	load_state(function(lines)
+	    set_lines(header(lines), { sanitize = true })
+	end)
+    end, vim.tbl_extend("force", opts, { desc = "Refresh state" }))
 
     set_lines(header({ "Loading..." }))
     load_state(function(lines)
