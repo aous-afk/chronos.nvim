@@ -9,6 +9,11 @@ local state = {
     buf = nil,
     win = nil,
     ns = vim.api.nvim_create_namespace("chronos_dashboard"),
+    -- Maps 1-based line number → task uuid, rebuilt on every task render.
+    line_task_map = {},
+    -- Remembers which task view is active so `d` and `a` can refresh it.
+    -- Values: "all" | "project"
+    last_task_view = nil,
 }
 local function flatten_newlines(s)
   s = s or ""
@@ -168,6 +173,9 @@ local function header(state_lines)
 	"  " .. pad_right("p  Pending (current project)", colw) .. "t  Pending (all)"
     )
     table.insert(lines,
+	"  " .. pad_right("d  Mark task done (on task line)", colw) .. "a  Add task"
+    )
+    table.insert(lines,
 	"  " .. pad_right("r  Refresh state", colw) .. "q  Close"
     )
 
@@ -179,7 +187,7 @@ local function render_with_state(build_body_lines, apply_hl)
   load_state(function(state_lines)
     local head = header(state_lines)
     local body = build_body_lines() or {}
-    set_lines(vim.list_extend(head, body), { sanitize = false })
+    set_lines(vim.list_extend(head, body), { sanitize = true })
     if apply_hl then apply_hl() end
   end)
 end
@@ -205,6 +213,30 @@ function M.show_weekly_report()
   end)
 end
 
+-- Rebuild line→uuid map by scanning the buffer for rendered task lines.
+-- Called after every task render so `d` always has fresh data.
+local function rebuild_line_task_map(tasks)
+    state.line_task_map = {}
+    if not state.buf or not vim.api.nvim_buf_is_valid(state.buf) then return end
+
+    -- Build id→uuid lookup from the task list (id is the short numeric id)
+    local id_to_uuid = {}
+    for _, t in ipairs(tasks or {}) do
+        if t.id and t.uuid then
+            id_to_uuid[tostring(t.id)] = t.uuid
+        end
+    end
+
+    local lines = vim.api.nvim_buf_get_lines(state.buf, 0, -1, false)
+    for i, line in ipairs(lines) do
+        -- task lines look like:  "- #42 prio:H [Project] description"
+        local id_str = line:match("^%- #(%d+)")
+        if id_str and id_to_uuid[id_str] then
+            state.line_task_map[i] = id_to_uuid[id_str]
+        end
+    end
+end
+
 local function render_pending_tasks(tasks, title_line)
     render_with_state(function()
 	table.sort(tasks, function(a, b) return (a.id or 0) < (b.id or 0) end)
@@ -228,10 +260,14 @@ local function render_pending_tasks(tasks, title_line)
 	    table.insert(out, ("- %s%s%s%s"):format(id, pr, proj, desc))
 	end
 	return out
-    end, apply_task_highlights)
+    end, function()
+        apply_task_highlights()
+        rebuild_line_task_map(tasks)
+    end)
 end
 
 function M.show_pending_tasks_all()
+    state.last_task_view = "all"
     render_with_state(function() return { "Loading pending tasks (all)...", "" } end)
 
     Task.export_raw("pending", function(res)
@@ -253,6 +289,7 @@ function M.show_pending_tasks_all()
 end
 
 function M.show_pending_tasks_current_project()
+    state.last_task_view = "project"
     local current = Config.get_current_project and Config.get_current_project()
     if not current or current == "" then current = Config.opts.default_project end
 
@@ -337,6 +374,48 @@ function M.open()
     vim.keymap.set("n", "w", M.show_weekly_report, vim.tbl_extend("force", opts, { desc = "Weekly report" }))
     vim.keymap.set("n", "p", M.show_pending_tasks_current_project, vim.tbl_extend("force", opts, { desc = "Pending tasks (project)" }))
     vim.keymap.set("n", "t", M.show_pending_tasks_all, vim.tbl_extend("force", opts, { desc = "Pending tasks (all)" }))
+
+    vim.keymap.set("n", "d", function()
+        local line = vim.api.nvim_win_get_cursor(state.win)[1] -- 1-based
+        local uuid = state.line_task_map[line]
+        if not uuid then
+            vim.notify("Chronos: no task on this line", vim.log.levels.WARN)
+            return
+        end
+        Task.done(uuid, function(ok)
+            if ok then
+                vim.notify("Task done ✓")
+                -- Refresh whichever task view is currently showing
+                if state.last_task_view == "all" then
+                    M.show_pending_tasks_all()
+                elseif state.last_task_view == "project" then
+                    M.show_pending_tasks_current_project()
+                end
+            end
+        end)
+    end, vim.tbl_extend("force", opts, { desc = "Mark task done" }))
+
+    vim.keymap.set("n", "a", function()
+        local current = Config.get_current_project and Config.get_current_project()
+        if not current or current == "" then current = Config.opts.default_project end
+
+        vim.ui.input({ prompt = ("Add task [%s]: "):format(current) }, function(input)
+            if not input or vim.trim(input) == "" then return end
+            local description = vim.trim(input)
+            Task.add(current, description, nil, function(ok)
+                if ok then
+                    vim.notify(("Task added: [%s] %s"):format(current, description))
+                    -- Refresh the current task view, or default to project view
+                    if state.last_task_view == "all" then
+                        M.show_pending_tasks_all()
+                    else
+                        state.last_task_view = "project"
+                        M.show_pending_tasks_current_project()
+                    end
+                end
+            end)
+        end)
+    end, vim.tbl_extend("force", opts, { desc = "Add task" }))
 vim.keymap.set("n", "r", function()
   set_lines(header({ "Refreshing..." }), { sanitize = true })
   load_state(function(lines)
