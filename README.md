@@ -79,10 +79,37 @@ All merged and deduplicated.
 
 ---
 
+## Dashboard
+
+Open the dashboard:
+
+```vim
+:Chronos
+```
+
+The dashboard shows:
+
+- Current project
+- Current `bartib current` output (raw table, ANSI stripped)
+- Pending task count for current project
+
+### Dashboard Keys
+
+| Key | Action |
+|-----|--------|
+| `w` | Weekly report (`bartib report --current_week`) |
+| `p` | Pending tasks (current project) |
+| `t` | Pending tasks (all projects) |
+| `r` | Refresh current state |
+| `q` | Close dashboard |
+
+---
+
 ## Commands
 
 | Command | Description |
 |---|---|
+| `:Chronos` | Opens the floating Chronos dashboard. |
 | `:ChronosProjectSelect` | Prompts you to select a project (merged from Taskwarrior + bartib) and sets it as the current project. |
 | `:ChronosProjectsRefresh` | Refreshes the internal merged project cache manually. |
 | `:ChronosTimeStart [-p <project>] <description>` | Starts a bartib activity. Uses `-p` if provided; otherwise uses the current project or prompts once. |

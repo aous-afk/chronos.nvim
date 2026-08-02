@@ -37,6 +37,9 @@ function M.setup(opts)
 	{ "ChronosTaskDoneStop", function() taskCmds.task_done_stop() end,       {} },
 	{ "ChronosTaskReopen",   function() taskCmds.task_reopen() end,          {} },
 	{ "ChronosTaskPriority", function() taskCmds.task_priority() end,        {} },
+
+	-- Dashboard
+	{ "Chronos", function() require("chronos.ui.dashboard").open() end, {} },
     }
 
     for _, d in ipairs(defs) do
