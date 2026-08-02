@@ -1,6 +1,7 @@
 local Config = require("chronos.config")
 local Time = require("chronos.backend.time")
 local Task = require("chronos.backend.task")
+local Log = require("chronos.logger.log")
 local vim = vim
 
 local M = {}
@@ -15,11 +16,25 @@ local state = {
     -- Values: "all" | "project"
     last_task_view = nil,
 }
+state.view = "pending"
+state.line_map = {}   -- [line_number] = task
+
 local function flatten_newlines(s)
     s = s or ""
     s = s:gsub("\r\n", "\n"):gsub("\r", "\n")
     s = s:gsub("\n", " ")
     return s
+end
+
+local function task_under_cursor()
+    if not state.buf then return nil end
+    local row = vim.api.nvim_win_get_cursor(state.win)[1]
+    local uuid = state.line_task_map[row]
+    if not uuid then
+	vim.notify("Chronos: no task on this line", vim.log.levels.WARN)
+	return
+    end
+    return uuid
 end
 
 local function pad_right(s, width)
@@ -44,6 +59,25 @@ end
 local function strip_ansi(s)
     -- remove CSI sequences like ESC[1m, ESC[0m, ESC[38;5;...m, etc.
     return (s or ""):gsub("\27%[[0-9;]*m", "")
+end
+
+function M.dash_task_done()
+    local t = task_under_cursor()
+    if not t then
+	vim.notify("No task on this line", vim.log.levels.INFO)
+	return
+    end
+    Task.done(t, function(ok)
+	if ok then
+	    vim.notify("Task done ✓")
+	    -- Refresh whichever task view is currently showing
+	    if state.last_task_view == "all" then
+		M.show_pending_tasks_all()
+	    elseif state.last_task_view == "project" then
+		M.show_pending_tasks_current_project()
+	    end
+	end
+    end)
 end
 
 local function load_state(cb)
@@ -213,7 +247,7 @@ function M.show_weekly_report()
     end)
 end
 
--- Rebuild line→uuid map by scanning the buffer for rendered task lines.
+-- Rebuild line -> uuid map by scanning the buffer for rendered task lines.
 -- Called after every task render so `d` always has fresh data.
 local function rebuild_line_task_map(tasks)
     state.line_task_map = {}
@@ -370,30 +404,22 @@ function M.open()
     vim.api.nvim_win_set_option(state.win, "cursorline", true)
 
     local opts = { nowait = true, silent = true, buffer = state.buf }
-    vim.keymap.set("n", "q", close, vim.tbl_extend("force", opts, { desc = "Close" }))
-    vim.keymap.set("n", "w", M.show_weekly_report, vim.tbl_extend("force", opts, { desc = "Weekly report" }))
-    vim.keymap.set("n", "p", M.show_pending_tasks_current_project, vim.tbl_extend("force", opts, { desc = "Pending tasks (project)" }))
-    vim.keymap.set("n", "t", M.show_pending_tasks_all, vim.tbl_extend("force", opts, { desc = "Pending tasks (all)" }))
+    vim.keymap.set("n", "q",
+	close,
+	vim.tbl_extend("force", opts, { desc = "Close" }))
+    vim.keymap.set("n", "w",
+	M.show_weekly_report,
+	vim.tbl_extend("force", opts, { desc = "Weekly report" }))
+    vim.keymap.set("n", "p",
+	M.show_pending_tasks_current_project,
+	vim.tbl_extend("force", opts, { desc = "Pending tasks (project)" }))
+    vim.keymap.set("n", "t",
+	M.show_pending_tasks_all,
+	vim.tbl_extend("force", opts, { desc = "Pending tasks (all)" }))
 
-    vim.keymap.set("n", "d", function()
-	local line = vim.api.nvim_win_get_cursor(state.win)[1] -- 1-based
-	local uuid = state.line_task_map[line]
-	if not uuid then
-	    vim.notify("Chronos: no task on this line", vim.log.levels.WARN)
-	    return
-	end
-	Task.done(uuid, function(ok)
-	    if ok then
-		vim.notify("Task done ✓")
-		-- Refresh whichever task view is currently showing
-		if state.last_task_view == "all" then
-		    M.show_pending_tasks_all()
-		elseif state.last_task_view == "project" then
-		    M.show_pending_tasks_current_project()
-		end
-	    end
-	end)
-    end, vim.tbl_extend("force", opts, { desc = "Mark task done" }))
+    vim.keymap.set("n", "d",
+	M.dash_task_done
+    , vim.tbl_extend("force", opts, { desc = "Mark task done" }))
 
     vim.keymap.set("n", "a", function()
 	local current = Config.get_current_project and Config.get_current_project()
