@@ -44,6 +44,41 @@ opts = {
         -- disable = { "pr" },
     -- },
 
+    -- Optional: dashboard float config (passed to nvim_open_win).
+    -- Geometry (relative/row/col/width/height) is always computed by Chronos.
+    -- Set to false to use a plain minimal float.
+    dashboard_buffer_settings = {
+        style = "minimal",
+        border = "double",
+    },
+
+    -- Optional: window-local options applied to the dashboard window.
+    -- Set to false to apply none.
+    dashboard_window_options = {
+        number = true,
+        relativenumber = true,
+        signcolumn = "yes",
+    },
+}
+```
+
+### Disabling Defaults
+
+Use `false` to disable a default:
+
+```lua
+opts = {
+    dashboard_window_options = false,  -- no line numbers / signcolumn
+    dashboard_buffer_settings = false, -- plain minimal float, rounded border
+}
+```
+
+Tables are merged with the defaults, so you only need to list what you change:
+
+```lua
+opts = {
+    dashboard_buffer_settings = { border = "single" },
+    dashboard_window_options = { relativenumber = false },
 }
 ```
 
