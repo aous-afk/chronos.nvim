@@ -108,12 +108,8 @@ local function load_state(cb)
 	    state_lines[2] = "Tracking: none"
 	end
 
-	Task.count_pending(project, function(r2)
-	    local pending = "?"
-	    if r2 and r2.ok then
-		local out2 = compact(r2.stdout)
-		if out2:match("^%d+$") then pending = out2 end
-	    end
+	Task.count_pending(project, function(ok2, n)
+	    local pending = ok2 and tostring(n) or "?"
 	    state_lines[3] = ("Pending: %s"):format(pending)
 
 	    cb(state_lines)
@@ -347,7 +343,7 @@ function M.show_pending_tasks_current_project()
 
 	local filtered = {}
 	for _, t in ipairs(tasks) do
-	    if t.project == current then table.insert(filtered, t) end
+	    if Task.in_project(t.project, current) then table.insert(filtered, t) end
 	end
 
 	render_pending_tasks(filtered, "Current project: " .. current)

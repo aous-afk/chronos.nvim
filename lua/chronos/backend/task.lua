@@ -148,18 +148,29 @@ function M.export_pending(cb)
     return M.export_status("pending", cb)
 end
 
+--- True if task_project is `project` or one of its sub-projects (dot-separated).
+--- "rts-tbn" matches "rts-tbn" and "rts-tbn.perf", but not "rts-tbnx".
+--- @param task_project string|nil
+--- @param project string|nil  nil/"" matches everything
+function M.in_project(task_project, project)
+    if not project or project == "" then return true end
+    if not task_project then return false end
+    return task_project == project or vim.startswith(task_project, project .. ".")
+end
+
+--- Count pending tasks in project (including sub-projects).
+--- @param cb fun(ok:boolean, count:integer|table)
 function M.count_pending(project, cb)
     cb = cb or function() end
-    local bin = Config.opts.task_bin or "task"
 
-    local args = { bin, "status:pending" }
-    if project and project ~= "" then
-	table.insert(args, ("project:%s"):format(project))
-    end
-    table.insert(args, "count")
+    M.export_status("pending", function(ok, tasks)
+	if not ok then return cb(false, tasks) end
 
-    U.system(args, { text = true }, function(r)
-	vim.schedule(function() cb(r) end)
+	local n = 0
+	for _, t in ipairs(tasks) do
+	    if M.in_project(t.project, project) then n = n + 1 end
+	end
+	cb(true, n)
     end)
 end
 
