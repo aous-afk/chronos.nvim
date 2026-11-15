@@ -5,10 +5,20 @@ M.defaults = {
     current_project = nil,
     bartib_bin = "bartib",
     task_bin = "task",
-    projects = {}
+    projects = {},
+    dashboard_buffer_settings ={
+	relative = "editor",
+	style = "minimal",
+	border = "double",
+    },
+    dashboard_window_options = {
+	number = true,
+	relativenumber = true,
+	signcolumn = "yes",
+    },
 }
-M.opts = vim.deepcopy(M.defaults)
 
+M.opts = vim.deepcopy(M.defaults)
 local function state_file()
     return vim.fn.stdpath("state") .. "/chronos.json"
 end

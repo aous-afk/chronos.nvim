@@ -389,17 +389,26 @@ function M.open()
     local height = math.floor(ui.height * 0.75)
     local row = math.floor((ui.height - height) / 2)
     local col = math.floor((ui.width - width) / 2)
+    local bs = Config.opts.dashboard_buffer_settings
+    local win_config = vim.tbl_extend("force",
+	{ style = "minimal", border = "rounded" },
+	type(bs) == "table" and bs or {},
+	{
+	    relative = "editor",
+	    row = row,
+	    col = col,
+	    width = width,
+	    height = height,
+	}
+    )
+    state.win = vim.api.nvim_open_win(state.buf, true, win_config)
 
-    state.win = vim.api.nvim_open_win(state.buf, true, {
-	relative = "editor",
-	row = row,
-	col = col,
-	width = width,
-	height = height,
-	style = "minimal",
-	border = "rounded",
-    })
-
+    local wo = Config.opts.dashboard_window_options
+    if type(wo) == "table" then
+	for name, value in pairs(wo) do
+	    vim.api.nvim_set_option_value(name, value, { win = state.win })
+	end
+    end
     vim.api.nvim_win_set_option(state.win, "wrap", false)
     vim.api.nvim_win_set_option(state.win, "cursorline", true)
 
